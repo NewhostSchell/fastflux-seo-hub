@@ -1,1 +1,24 @@
+FastFlux VPN Guide Hub
 
+Questo sito contiene guide VPN dedicate a:
+- streaming
+- IPTV
+- Netflix
+- Smart TV
+- Fire TV
+- Android TV
+- router
+- WireGuard
+- WiFi pubblico
+- privacy online
+- gaming
+
+Sito principale:
+https://fastfluxvpn.fluxvid.win/
+
+Sezioni utili:
+- Home: index.html
+- FAQ: faq/faq-vpn.html
+- Sitemap: sitemap.xml
+
+Le guide vengono aggiornate automaticamente per mantenere coerenza, link interni e struttura SEO.
