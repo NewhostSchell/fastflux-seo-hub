@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://fastfluxvpn.fluxvid.win/sitemap.xml
