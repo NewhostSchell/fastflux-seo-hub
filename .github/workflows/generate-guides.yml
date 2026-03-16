@@ -2,67 +2,32 @@ name: Generate SEO Guides
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'data/topics.json'
-      - 'templates/guide-template.html'
+  schedule:
+    - cron: "0 3 * * 1"
 
 jobs:
   generate:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.11'
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
 
       - name: Generate pages
+        run: node generate.js
+
+      - name: Commit pages
         run: |
-          python << 'EOF'
-          import json, os, re
-
-          def slugify(text):
-              text = text.lower()
-              text = re.sub(r'[^a-z0-9\s-]', '', text)
-              text = text.replace(" ", "-")
-              return text
-
-          with open("data/topics.json") as f:
-              topics = json.load(f)["clusters"]
-
-          with open("templates/guide-template.html") as f:
-              template = f.read()
-
-          os.makedirs("guide", exist_ok=True)
-
-          for keyword in topics:
-              slug = slugify(keyword)
-              path = f"guide/{slug}.html"
-
-              if os.path.exists(path):
-                  continue
-
-              title = keyword.title()
-              description = f"Guida completa su {keyword}"
-
-              html = template.replace("{{TITLE}}", title)
-              html = html.replace("{{DESCRIPTION}}", description)
-              html = html.replace("{{KEYWORD}}", keyword)
-              html = html.replace("{{INTRO}}", f"Guida completa su {keyword}")
-
-              with open(path,"w") as out:
-                  out.write(html)
-          EOF
-
-      - name: Commit files
-        run: |
-          git config user.name github-actions
-          git config user.email actions@github.com
-          git add guide
-          git commit -m "auto generate guides" || echo "no changes"
+          git config --global user.name "seo-bot"
+          git config --global user.email "bot@users.noreply.github.com"
+          git add .
+          git commit -m "auto seo pages"
           git push
