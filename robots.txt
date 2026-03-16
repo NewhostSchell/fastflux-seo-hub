@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://fastfluxvpn.fluxvid.win/sitemap.xml
+Sitemap: https://newhostschell.github.io/fastflux-seo-hub/sitemap.xml
