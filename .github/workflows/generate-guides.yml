@@ -1,7 +1,12 @@
-name: Generate SEO Guides
+name: Generate SEO Hub
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'data/topics.json'
+      - 'templates/guide-template.html'
+      - '.github/workflows/generate-guides.yml'
 
 permissions:
   contents: write
@@ -19,18 +24,39 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Generate guides
+      - name: Generate guides, index and sitemap
         run: |
           python << 'EOF'
           import json, os, re
+          from collections import defaultdict
+
+          BASE_URL = "https://newhostschell.github.io/fastflux-seo-hub"
 
           def slugify(text):
               text = text.lower().strip()
-              text = text.replace("à","a").replace("è","e").replace("é","e").replace("ì","i").replace("ò","o").replace("ù","u")
+              repl = {
+                  "à":"a","è":"e","é":"e","ì":"i","ò":"o","ù":"u"
+              }
+              for k,v in repl.items():
+                  text = text.replace(k,v)
               text = re.sub(r'[^a-z0-9\s-]', '', text)
               text = re.sub(r'\s+', '-', text)
               text = re.sub(r'-+', '-', text)
               return text.strip('-')
+
+          def pick_cluster(keyword):
+              k = keyword.lower()
+              if any(x in k for x in ["streaming","netflix","iptv","android tv","fire tv","smart tv"]):
+                  return "Streaming e TV"
+              if any(x in k for x in ["router","wireguard","openwrt"]):
+                  return "Router e rete"
+              if any(x in k for x in ["gaming","ping"]):
+                  return "Gaming"
+              if any(x in k for x in ["wifi","hotel","aeroporto","viaggio"]):
+                  return "WiFi pubblico e mobilità"
+              if any(x in k for x in ["privacy","dati","sicurezza"]):
+                  return "Privacy e sicurezza"
+              return "Guide VPN"
 
           with open("data/topics.json", "r", encoding="utf-8") as f:
               topics = json.load(f)["clusters"]
@@ -40,54 +66,176 @@ jobs:
 
           os.makedirs("guide", exist_ok=True)
 
+          pages = []
+          clusters = defaultdict(list)
+
           for keyword in topics:
               slug = slugify(keyword)
-              path = f"guide/{slug}.html"
+              filename = f"{slug}.html"
+              path = os.path.join("guide", filename)
+              cluster = pick_cluster(keyword)
 
-              if os.path.exists(path):
-                  continue
+              pages.append({
+                  "keyword": keyword,
+                  "slug": slug,
+                  "filename": filename,
+                  "path": path,
+                  "cluster": cluster,
+                  "url": f"{BASE_URL}/guide/{filename}"
+              })
+              clusters[cluster].append({
+                  "keyword": keyword,
+                  "slug": slug,
+                  "filename": filename,
+                  "path": path,
+                  "url": f"{BASE_URL}/guide/{filename}"
+              })
 
-              title = f"{keyword.title()} | FastFlux SEO Hub"
-              description = f"Guida completa su {keyword}, utilizzo, vantaggi e configurazione pratica."
-              intro = f"{keyword.capitalize()} è un argomento importante per chi vuole migliorare privacy, sicurezza e uso pratico di una VPN."
+          pages_by_slug = {p["slug"]: p for p in pages}
+
+          for page in pages:
+              # related pages: same cluster first, then others
+              same_cluster = [p for p in clusters[page["cluster"]] if p["slug"] != page["slug"]]
+              other_pages = [p for p in pages if p["slug"] != page["slug"] and p["cluster"] != page["cluster"]]
+
+              related = (same_cluster[:3] + other_pages[:2])[:5]
+
+              related_links = []
+              for rel in related:
+                  related_links.append(f'<li><a href="../guide/{rel["filename"]}">{rel["keyword"].title()}</a></li>')
+
+              related_links.append('<li><a href="../faq/faq-vpn.html">FAQ VPN</a></li>')
+              related_links_html = "\n".join(related_links)
+
+              title = f'{page["keyword"].title()} | FastFlux VPN Guide'
+              description = f'Guida completa su {page["keyword"]}, utilizzo, vantaggi, configurazione e casi pratici.'
+              intro = f'{page["keyword"].capitalize()} è un argomento importante per chi vuole migliorare privacy, sicurezza e uso pratico di una VPN.'
+              canonical = page["url"]
 
               html = template
               html = html.replace("{{TITLE}}", title)
               html = html.replace("{{DESCRIPTION}}", description)
               html = html.replace("{{INTRO}}", intro)
-              html = html.replace("{{KEYWORD}}", keyword)
+              html = html.replace("{{KEYWORD}}", page["keyword"])
+              html = html.replace("{{CANONICAL}}", canonical)
+              html = html.replace("{{RELATED_LINKS}}", related_links_html)
 
-              with open(path, "w", encoding="utf-8") as out:
+              with open(page["path"], "w", encoding="utf-8") as out:
                   out.write(html)
 
-          base_url = "https://newhostschell.github.io/fastflux-seo-hub"
-          urls = [f"{base_url}/"]
+          # Build index.html automatically
+          cluster_sections = []
 
-          if os.path.exists("faq/faq-vpn.html"):
-              urls.append(f"{base_url}/faq/faq-vpn.html")
+          for cluster_name, cluster_pages in clusters.items():
+              items = []
+              for p in cluster_pages[:12]:
+                  items.append(f'''
+                  <article class="card">
+                    <h3><a href="guide/{p["filename"]}">{p["keyword"].title()}</a></h3>
+                    <p>Guida dedicata a {p["keyword"]} con struttura chiara, link interni e collegamento a FastFlux VPN.</p>
+                  </article>
+                  ''')
+              block = f'''
+              <section class="cluster-block">
+                <h2 class="section-title">{cluster_name}</h2>
+                <div class="grid">
+                  {"".join(items)}
+                </div>
+              </section>
+              '''
+              cluster_sections.append(block)
 
-          for name in sorted(os.listdir("guide")):
-              if name.endswith(".html"):
-                  urls.append(f"{base_url}/guide/{name}")
+          index_html = f'''<!DOCTYPE html>
+          <html lang="it">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>FastFlux VPN Guide Hub | Guide VPN per streaming, privacy, router e gaming</title>
+            <meta name="description" content="Hub completo di guide VPN su streaming, IPTV, Netflix, router, WiFi pubblico, privacy online, gaming e configurazione pratica con FastFlux VPN.">
+            <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+            <link rel="canonical" href="{BASE_URL}/">
+            <link rel="stylesheet" href="seo-assets/seo.css">
+          </head>
+          <body>
+            <header class="site-header">
+              <div class="container">
+                <h1>FastFlux VPN Guide Hub</h1>
+                <p class="intro">Hub di guide VPN dedicato a streaming, router, privacy, WiFi pubblico e gaming. Tutte le guide puntano a rafforzare la presenza organica di FastFlux VPN.</p>
+                <nav class="breadcrumb">
+                  <span>Hub guide</span>
+                </nav>
+              </div>
+            </header>
+
+            <main class="container">
+
+              <section class="card">
+                <h2>FastFlux VPN</h2>
+                <p>Questa repository è il motore SEO di FastFlux. Le guide vengono generate e aggiornate automaticamente per mantenere struttura, link interni e sitemap sempre coerenti.</p>
+                <p><a class="cta-button" href="https://fastfluxvpn.fluxvid.win/">Vai al sito principale FastFlux VPN</a></p>
+              </section>
+
+              {"".join(cluster_sections)}
+
+              <section class="card">
+                <h2>FAQ VPN</h2>
+                <p><a href="faq/faq-vpn.html">Apri la pagina FAQ VPN</a></p>
+              </section>
+
+            </main>
+
+            <footer class="site-footer">
+              <div class="container">
+                <p>FastFlux VPN Guide Hub</p>
+                <p class="footer-links">
+                  <a href="https://fastfluxvpn.fluxvid.win/">Sito principale</a>
+                  |
+                  <a href="faq/faq-vpn.html">FAQ VPN</a>
+                  |
+                  <a href="sitemap.xml">Sitemap</a>
+                </p>
+              </div>
+            </footer>
+          </body>
+          </html>'''
+
+          with open("index.html", "w", encoding="utf-8") as f:
+              f.write(index_html)
+
+          # Build sitemap
+          urls = [f"{BASE_URL}/", f"{BASE_URL}/faq/faq-vpn.html"]
+          for page in pages:
+              urls.append(page["url"])
 
           with open("sitemap.xml", "w", encoding="utf-8") as f:
-              f.write('<?xml version="1.0" encoding="UTF-8"?>\n')
-              f.write('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n')
+              f.write('<?xml version="1.0" encoding="UTF-8"?>\\n')
+              f.write('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\\n')
               for url in urls:
-                  f.write("  <url>\n")
-                  f.write(f"    <loc>{url}</loc>\n")
-                  f.write("  </url>\n")
-              f.write('</urlset>\n')
+                  f.write("  <url>\\n")
+                  f.write(f"    <loc>{url}</loc>\\n")
+                  f.write("  </url>\\n")
+              f.write('</urlset>\\n')
+
+          # Report
+          os.makedirs("reports", exist_ok=True)
+          report = {
+              "total_topics": len(topics),
+              "total_clusters": len(clusters),
+              "total_urls": len(urls)
+          }
+          with open("reports/build-report.json", "w", encoding="utf-8") as f:
+              json.dump(report, f, ensure_ascii=False, indent=2)
+
           EOF
 
       - name: Commit generated files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add guide sitemap.xml
+          git add guide index.html sitemap.xml reports/build-report.json
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Auto-generate SEO guides"
+            git commit -m "Auto-update SEO hub"
             git push
           fi
