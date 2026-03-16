@@ -2,8 +2,6 @@ name: Generate SEO Guides
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 3 * * 1"
 
 jobs:
   generate:
@@ -13,21 +11,82 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: 20
+          python-version: "3.11"
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Generate pages
-        run: node generate.js
-
-      - name: Commit pages
+      - name: Generate guides
         run: |
-          git config --global user.name "seo-bot"
-          git config --global user.email "bot@users.noreply.github.com"
-          git add .
-          git commit -m "auto seo pages"
+          python << 'EOF'
+          import json, os, re
+
+          def slugify(text):
+              text = text.lower().strip()
+              text = text.replace("à","a").replace("è","e").replace("é","e").replace("ì","i").replace("ò","o").replace("ù","u")
+              text = re.sub(r'[^a-z0-9\\s-]', '', text)
+              text = re.sub(r'\\s+', '-', text)
+              text = re.sub(r'-+', '-', text)
+              return text.strip('-')
+
+          with open("data/topics.json", "r", encoding="utf-8") as f:
+              topics = json.load(f)["clusters"]
+
+          with open("templates/guide-template.html", "r", encoding="utf-8") as f:
+              template = f.read()
+
+          os.makedirs("guide", exist_ok=True)
+
+          created = []
+
+          for keyword in topics:
+              slug = slugify(keyword)
+              path = f"guide/{slug}.html"
+
+              if os.path.exists(path):
+                  continue
+
+              title = f"{keyword.title()} | FastFlux SEO Hub"
+              description = f"Guida completa su {keyword}, utilizzo, vantaggi e configurazione pratica."
+              intro = f"{keyword.capitalize()} è un argomento importante per chi vuole migliorare privacy, sicurezza e uso pratico di una VPN."
+
+              html = template
+              html = html.replace("{{TITLE}}", title)
+              html = html.replace("{{DESCRIPTION}}", description)
+              html = html.replace("{{INTRO}}", intro)
+              html = html.replace("{{KEYWORD}}", keyword)
+
+              with open(path, "w", encoding="utf-8") as out:
+                  out.write(html)
+
+              created.append(path)
+
+          base_url = "https://newhostschell.github.io/fastflux-seo-hub"
+          urls = [f"{base_url}/"]
+
+          if os.path.exists("faq/faq-vpn.html"):
+              urls.append(f"{base_url}/faq/faq-vpn.html")
+
+          for name in sorted(os.listdir("guide")):
+              if name.endswith(".html"):
+                  urls.append(f"{base_url}/guide/{name}")
+
+          with open("sitemap.xml", "w", encoding="utf-8") as f:
+              f.write('<?xml version="1.0" encoding="UTF-8"?>\\n')
+              f.write('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\\n')
+              for url in urls:
+                  f.write("  <url>\\n")
+                  f.write(f"    <loc>{url}</loc>\\n")
+                  f.write("  </url>\\n")
+              f.write('</urlset>\\n')
+
+          print("Created:", created)
+          EOF
+
+      - name: Commit generated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add guide sitemap.xml
+          git diff --cached --quiet || git commit -m "Auto-generate SEO guides"
           git push
