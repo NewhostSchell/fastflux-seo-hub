@@ -3,6 +3,9 @@ name: Generate SEO Guides
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -24,8 +27,8 @@ jobs:
           def slugify(text):
               text = text.lower().strip()
               text = text.replace("à","a").replace("è","e").replace("é","e").replace("ì","i").replace("ò","o").replace("ù","u")
-              text = re.sub(r'[^a-z0-9\\s-]', '', text)
-              text = re.sub(r'\\s+', '-', text)
+              text = re.sub(r'[^a-z0-9\s-]', '', text)
+              text = re.sub(r'\s+', '-', text)
               text = re.sub(r'-+', '-', text)
               return text.strip('-')
 
@@ -36,8 +39,6 @@ jobs:
               template = f.read()
 
           os.makedirs("guide", exist_ok=True)
-
-          created = []
 
           for keyword in topics:
               slug = slugify(keyword)
@@ -59,8 +60,6 @@ jobs:
               with open(path, "w", encoding="utf-8") as out:
                   out.write(html)
 
-              created.append(path)
-
           base_url = "https://newhostschell.github.io/fastflux-seo-hub"
           urls = [f"{base_url}/"]
 
@@ -72,15 +71,13 @@ jobs:
                   urls.append(f"{base_url}/guide/{name}")
 
           with open("sitemap.xml", "w", encoding="utf-8") as f:
-              f.write('<?xml version="1.0" encoding="UTF-8"?>\\n')
-              f.write('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\\n')
+              f.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+              f.write('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n')
               for url in urls:
-                  f.write("  <url>\\n")
-                  f.write(f"    <loc>{url}</loc>\\n")
-                  f.write("  </url>\\n")
-              f.write('</urlset>\\n')
-
-          print("Created:", created)
+                  f.write("  <url>\n")
+                  f.write(f"    <loc>{url}</loc>\n")
+                  f.write("  </url>\n")
+              f.write('</urlset>\n')
           EOF
 
       - name: Commit generated files
@@ -88,5 +85,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add guide sitemap.xml
-          git diff --cached --quiet || git commit -m "Auto-generate SEO guides"
-          git push
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Auto-generate SEO guides"
+            git push
+          fi
