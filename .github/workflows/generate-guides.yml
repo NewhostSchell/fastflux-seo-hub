@@ -32,7 +32,7 @@ jobs:
           import json, os, re
           from collections import defaultdict
 
-          BASE_URL = "https://newhostschell.github.io/fastflux-seo-hub"
+          BASE_URL = "https://guide.fastfluxvpn.fluxvid.win"
 
           def slugify(text):
               text = text.lower().strip()
