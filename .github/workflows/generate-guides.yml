@@ -2,6 +2,8 @@ name: Generate SEO Hub
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
   push:
     paths:
       - 'data/topics.json'
@@ -24,7 +26,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Generate guides, index and sitemap
+      - name: Generate guides, index, sitemap and report
         run: |
           python << 'EOF'
           import json, os, re
@@ -34,11 +36,9 @@ jobs:
 
           def slugify(text):
               text = text.lower().strip()
-              repl = {
-                  "à":"a","è":"e","é":"e","ì":"i","ò":"o","ù":"u"
-              }
-              for k,v in repl.items():
-                  text = text.replace(k,v)
+              repl = {"à":"a","è":"e","é":"e","ì":"i","ò":"o","ù":"u"}
+              for k, v in repl.items():
+                  text = text.replace(k, v)
               text = re.sub(r'[^a-z0-9\s-]', '', text)
               text = re.sub(r'\s+', '-', text)
               text = re.sub(r'-+', '-', text)
@@ -65,6 +65,7 @@ jobs:
               template = f.read()
 
           os.makedirs("guide", exist_ok=True)
+          os.makedirs("reports", exist_ok=True)
 
           pages = []
           clusters = defaultdict(list)
@@ -75,37 +76,27 @@ jobs:
               path = os.path.join("guide", filename)
               cluster = pick_cluster(keyword)
 
-              pages.append({
+              page = {
                   "keyword": keyword,
                   "slug": slug,
                   "filename": filename,
                   "path": path,
                   "cluster": cluster,
                   "url": f"{BASE_URL}/guide/{filename}"
-              })
-              clusters[cluster].append({
-                  "keyword": keyword,
-                  "slug": slug,
-                  "filename": filename,
-                  "path": path,
-                  "url": f"{BASE_URL}/guide/{filename}"
-              })
-
-          pages_by_slug = {p["slug"]: p for p in pages}
+              }
+              pages.append(page)
+              clusters[cluster].append(page)
 
           for page in pages:
-              # related pages: same cluster first, then others
               same_cluster = [p for p in clusters[page["cluster"]] if p["slug"] != page["slug"]]
               other_pages = [p for p in pages if p["slug"] != page["slug"] and p["cluster"] != page["cluster"]]
-
               related = (same_cluster[:3] + other_pages[:2])[:5]
 
               related_links = []
               for rel in related:
                   related_links.append(f'<li><a href="../guide/{rel["filename"]}">{rel["keyword"].title()}</a></li>')
-
               related_links.append('<li><a href="../faq/faq-vpn.html">FAQ VPN</a></li>')
-              related_links_html = "\n".join(related_links)
+              related_links_html = "\n      ".join(related_links)
 
               title = f'{page["keyword"].title()} | FastFlux VPN Guide'
               description = f'Guida completa su {page["keyword"]}, utilizzo, vantaggi, configurazione e casi pratici.'
@@ -123,9 +114,7 @@ jobs:
               with open(page["path"], "w", encoding="utf-8") as out:
                   out.write(html)
 
-          # Build index.html automatically
           cluster_sections = []
-
           for cluster_name, cluster_pages in clusters.items():
               items = []
               for p in cluster_pages[:12]:
@@ -146,64 +135,81 @@ jobs:
               cluster_sections.append(block)
 
           index_html = f'''<!DOCTYPE html>
-          <html lang="it">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>FastFlux VPN Guide Hub | Guide VPN per streaming, privacy, router e gaming</title>
-            <meta name="description" content="Hub completo di guide VPN su streaming, IPTV, Netflix, router, WiFi pubblico, privacy online, gaming e configurazione pratica con FastFlux VPN.">
-            <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
-            <link rel="canonical" href="{BASE_URL}/">
-            <link rel="stylesheet" href="seo-assets/seo.css">
-          </head>
-          <body>
-            <header class="site-header">
-              <div class="container">
-                <h1>FastFlux VPN Guide Hub</h1>
-                <p class="intro">Hub di guide VPN dedicato a streaming, router, privacy, WiFi pubblico e gaming. Tutte le guide puntano a rafforzare la presenza organica di FastFlux VPN.</p>
-                <nav class="breadcrumb">
-                  <span>Hub guide</span>
-                </nav>
-              </div>
-            </header>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FastFlux VPN Guide Hub | Guide VPN per streaming, privacy, router e gaming</title>
+  <meta name="description" content="Hub completo di guide VPN su streaming, IPTV, Netflix, router, WiFi pubblico, privacy online, gaming e configurazione pratica con FastFlux VPN.">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="canonical" href="{BASE_URL}/index.html">
+  <link rel="stylesheet" href="seo-assets/seo.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="brand">FastFlux VPN Guide Hub</div>
+      <nav class="nav">
+        <a href="index.html">Home</a>
+        <a href="faq/faq-vpn.html">FAQ</a>
+        <a href="sitemap.xml">Sitemap</a>
+        <a href="llms.txt">LLMs</a>
+        <a href="https://fastfluxvpn.fluxvid.win/">Sito principale</a>
+      </nav>
+    </div>
+  </div>
 
-            <main class="container">
+  <header class="hero">
+    <div class="wrap">
+      <div class="hero-box">
+        <div class="eyebrow">Hub SEO e AI visibility dedicato alle guide VPN</div>
+        <h1>Guide VPN complete per streaming, privacy, router, WiFi pubblico e gaming</h1>
+        <p class="lead">
+          Questo hub raccoglie contenuti pensati per rispondere in modo chiaro alle ricerche più comuni su VPN, configurazione, sicurezza online, Smart TV, router e utilizzo pratico su più dispositivi. Le guide vengono organizzate automaticamente in cluster per migliorare navigazione, crawling, indicizzazione e visibilità nelle ricerche AI.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="https://fastfluxvpn.fluxvid.win/">Vai a FastFlux VPN</a>
+          <a class="btn btn-secondary" href="#cluster-list">Esplora i cluster</a>
+        </div>
+      </div>
+    </div>
+  </header>
 
-              <section class="card">
-                <h2>FastFlux VPN</h2>
-                <p>Questa repository è il motore SEO di FastFlux. Le guide vengono generate e aggiornate automaticamente per mantenere struttura, link interni e sitemap sempre coerenti.</p>
-                <p><a class="cta-button" href="https://fastfluxvpn.fluxvid.win/">Vai al sito principale FastFlux VPN</a></p>
-              </section>
+  <main class="wrap">
+    <section class="card">
+      <h2>Come funziona questo hub</h2>
+      <p>Questo sito è il motore SEO separato di FastFlux. Il workflow automatico genera nuove guide da un database di topic, aggiorna la sitemap, mantiene i link interni, rigenera la homepage e produce report di salute per tenere tutto coerente e pulito nel tempo.</p>
+      <p>Per il servizio principale visita <a href="https://fastfluxvpn.fluxvid.win/">FastFlux VPN</a>.</p>
+    </section>
 
-              {"".join(cluster_sections)}
+    <section id="cluster-list">
+      {"".join(cluster_sections)}
+    </section>
 
-              <section class="card">
-                <h2>FAQ VPN</h2>
-                <p><a href="faq/faq-vpn.html">Apri la pagina FAQ VPN</a></p>
-              </section>
+    <section class="card">
+      <h2>FAQ VPN</h2>
+      <p><a href="faq/faq-vpn.html">Apri la pagina FAQ VPN</a></p>
+    </section>
 
-            </main>
-
-            <footer class="site-footer">
-              <div class="container">
-                <p>FastFlux VPN Guide Hub</p>
-                <p class="footer-links">
-                  <a href="https://fastfluxvpn.fluxvid.win/">Sito principale</a>
-                  |
-                  <a href="faq/faq-vpn.html">FAQ VPN</a>
-                  |
-                  <a href="sitemap.xml">Sitemap</a>
-                </p>
-              </div>
-            </footer>
-          </body>
-          </html>'''
+    <footer class="footer">
+      <div>© 2026 FastFlux VPN Guide Hub</div>
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="faq/faq-vpn.html">FAQ VPN</a>
+        <a href="sitemap.xml">Sitemap</a>
+        <a href="llms.txt">LLMs</a>
+        <a href="https://fastfluxvpn.fluxvid.win/">Sito principale</a>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>'''
 
           with open("index.html", "w", encoding="utf-8") as f:
               f.write(index_html)
 
-          # Build sitemap
-          urls = [f"{BASE_URL}/", f"{BASE_URL}/faq/faq-vpn.html"]
+          urls = [f"{BASE_URL}/index.html", f"{BASE_URL}/faq/faq-vpn.html"]
           for page in pages:
               urls.append(page["url"])
 
@@ -216,14 +222,24 @@ jobs:
                   f.write("  </url>\\n")
               f.write('</urlset>\\n')
 
-          # Report
-          os.makedirs("reports", exist_ok=True)
+          missing = []
+          if not os.path.exists("index.html"):
+              missing.append("index.html")
+          if not os.path.exists("faq/faq-vpn.html"):
+              missing.append("faq/faq-vpn.html")
+          for page in pages:
+              if not os.path.exists(page["path"]):
+                  missing.append(page["path"])
+
           report = {
+              "status": "ok" if not missing else "warning",
               "total_topics": len(topics),
               "total_clusters": len(clusters),
-              "total_urls": len(urls)
+              "total_urls": len(urls),
+              "missing_files": missing
           }
-          with open("reports/build-report.json", "w", encoding="utf-8") as f:
+
+          with open("reports/health-report.json", "w", encoding="utf-8") as f:
               json.dump(report, f, ensure_ascii=False, indent=2)
 
           EOF
@@ -232,7 +248,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add guide index.html sitemap.xml reports/build-report.json
+          git add guide index.html sitemap.xml reports/health-report.json
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
