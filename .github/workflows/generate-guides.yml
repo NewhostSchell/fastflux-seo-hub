@@ -28,7 +28,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install openai
+        run: pip install openai requests
 
       - name: Write SEO engine script
         run: |
@@ -36,6 +36,22 @@ jobs:
           import json
           import os
           import re
+          import requests
+
+def google_suggest(keyword):
+    url = "https://suggestqueries.google.com/complete/search"
+    params = {
+        "client": "firefox",
+        "hl": "it",
+        "q": keyword
+    }
+
+    try:
+        r = requests.get(url, params=params, timeout=10)
+        data = r.json()
+        return data[1]
+    except:
+        return []
           from collections import defaultdict
 
           BASE_URL = "https://guide.fastfluxvpn.fluxvid.win"
