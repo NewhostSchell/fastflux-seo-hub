@@ -30,116 +30,29 @@ jobs:
       - name: Install dependencies
         run: pip install openai
 
-      - name: Prepare data files
+      - name: Write SEO engine script
         run: |
-          python <<'EOF'
-          import os, json
-
-          os.makedirs("data", exist_ok=True)
-          os.makedirs("reports", exist_ok=True)
-          os.makedirs("guide", exist_ok=True)
-
-          if os.path.exists("data/topics-master.json"):
-              pass
-          elif os.path.exists("data/topics.json"):
-              with open("data/topics.json", "r", encoding="utf-8") as f:
-                  raw = json.load(f)
-              if "topics" in raw:
-                  topics = raw["topics"]
-              elif "clusters" in raw:
-                  topics = raw["clusters"]
-              else:
-                  topics = []
-              with open("data/topics-master.json", "w", encoding="utf-8") as f:
-                  json.dump({"topics": topics}, f, ensure_ascii=False, indent=2)
-          else:
-              with open("data/topics-master.json", "w", encoding="utf-8") as f:
-                  json.dump({"topics": []}, f, ensure_ascii=False, indent=2)
-          EOF
-
-      - name: Discover topics with OpenAI
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          python <<'EOF'
-          import json, re
-          from openai import OpenAI
-
-          client = OpenAI()
-
-          with open("data/topics-master.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
-
-          existing_topics = data.get("topics", [])
-
-          prompt = f"""
-          Existing VPN SEO topics:
-          {existing_topics}
-
-          Suggest exactly 4 NEW Italian SEO topics for a VPN guide hub.
-
-          Requirements:
-          - related to VPN, streaming, IPTV, router, wifi security, privacy, gaming, smart tv
-          - not duplicates
-          - useful for an informational guide page
-          - no illegal, adult, hacking, crack, piracy topics
-          - short search-style phrases
-          - output ONLY valid JSON in this format:
-          {{"topics":["topic 1","topic 2","topic 3","topic 4"]}}
-          """
-
-          try:
-              response = client.responses.create(
-                  model="gpt-4.1-mini",
-                  input=prompt
-              )
-              text = response.output[0].content[0].text
-          except Exception:
-              text = '{"topics": []}'
-
-          try:
-              result = json.loads(text)
-              new_topics = result.get("topics", [])
-          except Exception:
-              new_topics = []
-
-          cleaned = []
-          for t in new_topics:
-              t = str(t).strip().lower()
-              t = re.sub(r"\s+", " ", t)
-              if t and t not in existing_topics and t not in cleaned:
-                  cleaned.append(t)
-
-          data["topics"] = existing_topics + cleaned
-
-          with open("data/topics-master.json", "w", encoding="utf-8") as f:
-              json.dump(data, f, ensure_ascii=False, indent=2)
-
-          with open("reports/ai-discovery-report.json", "w", encoding="utf-8") as f:
-              json.dump({
-                  "new_topics": cleaned,
-                  "count_added": len(cleaned),
-                  "total_topics": len(data["topics"])
-              }, f, ensure_ascii=False, indent=2)
-          EOF
-
-      - name: Generate guides, homepage, sitemap and reports
-        run: |
-          python <<'EOF'
-          import json, os, re
+          cat > seo_engine.py <<'PY'
+          import json
+          import os
+          import re
           from collections import defaultdict
 
           BASE_URL = "https://guide.fastfluxvpn.fluxvid.win"
+
+          os.makedirs("data", exist_ok=True)
+          os.makedirs("guide", exist_ok=True)
+          os.makedirs("reports", exist_ok=True)
 
           def slugify(text):
               text = text.lower().strip()
               repl = {"à":"a","è":"e","é":"e","ì":"i","ò":"o","ù":"u"}
               for k, v in repl.items():
                   text = text.replace(k, v)
-              text = re.sub(r'[^a-z0-9\s-]', '', text)
-              text = re.sub(r'\s+', '-', text)
-              text = re.sub(r'-+', '-', text)
-              return text.strip('-')
+              text = re.sub(r"[^a-z0-9\s-]", "", text)
+              text = re.sub(r"\s+", "-", text)
+              text = re.sub(r"-+", "-", text)
+              return text.strip("-")
 
           def pick_cluster(keyword):
               k = keyword.lower()
@@ -155,14 +68,89 @@ jobs:
                   return "Privacy e sicurezza"
               return "Guide VPN"
 
-          with open("data/topics-master.json", "r", encoding="utf-8") as f:
-              topics = json.load(f).get("topics", [])
+          master_path = "data/topics-master.json"
+
+          if os.path.exists(master_path):
+              with open(master_path, "r", encoding="utf-8") as f:
+                  data = json.load(f)
+          elif os.path.exists("data/topics.json"):
+              with open("data/topics.json", "r", encoding="utf-8") as f:
+                  raw = json.load(f)
+              if "topics" in raw:
+                  topics = raw["topics"]
+              elif "clusters" in raw:
+                  topics = raw["clusters"]
+              else:
+                  topics = []
+              data = {"topics": topics}
+              with open(master_path, "w", encoding="utf-8") as f:
+                  json.dump(data, f, ensure_ascii=False, indent=2)
+          else:
+              data = {"topics": []}
+              with open(master_path, "w", encoding="utf-8") as f:
+                  json.dump(data, f, ensure_ascii=False, indent=2)
+
+          topics = data.get("topics", [])
+
+          # OpenAI discovery
+          new_topics = []
+          api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+
+          if api_key:
+              try:
+                  from openai import OpenAI
+                  client = OpenAI(api_key=api_key)
+
+                  prompt = f"""
+          Existing VPN SEO topics:
+          {topics}
+
+          Suggest exactly 4 NEW Italian SEO topics for a VPN guide hub.
+
+          Requirements:
+          - related to VPN, streaming, IPTV, router, wifi security, privacy, gaming, smart tv
+          - not duplicates
+          - useful for an informational guide page
+          - no illegal, adult, hacking, crack, piracy topics
+          - short search-style phrases
+          - output ONLY valid JSON in this format:
+          {{"topics":["topic 1","topic 2","topic 3","topic 4"]}}
+                  """
+
+                  response = client.responses.create(
+                      model="gpt-4.1-mini",
+                      input=prompt
+                  )
+                  text = response.output[0].content[0].text
+                  result = json.loads(text)
+                  for t in result.get("topics", []):
+                      t = str(t).strip().lower()
+                      t = re.sub(r"\s+", " ", t)
+                      if t and t not in topics and t not in new_topics:
+                          new_topics.append(t)
+              except Exception:
+                  new_topics = []
+
+          if new_topics:
+              topics.extend(new_topics)
+              data["topics"] = topics
+              with open(master_path, "w", encoding="utf-8") as f:
+                  json.dump(data, f, ensure_ascii=False, indent=2)
+
+          with open("reports/ai-discovery-report.json", "w", encoding="utf-8") as f:
+              json.dump(
+                  {
+                      "new_topics": new_topics,
+                      "count_added": len(new_topics),
+                      "total_topics": len(topics)
+                  },
+                  f,
+                  ensure_ascii=False,
+                  indent=2
+              )
 
           with open("templates/guide-template.html", "r", encoding="utf-8") as f:
               template = f.read()
-
-          os.makedirs("guide", exist_ok=True)
-          os.makedirs("reports", exist_ok=True)
 
           pages = []
           clusters = defaultdict(list)
@@ -220,11 +208,11 @@ jobs:
               for p in cluster_pages[:12]:
                   items.append(
                       f'''
-                  <article class="card">
-                    <h3><a href="guide/{p["filename"]}">{p["keyword"].title()}</a></h3>
-                    <p>Guida dedicata a {p["keyword"]} con struttura chiara, link interni e collegamento a FastFlux VPN.</p>
-                  </article>
-                  '''
+                      <article class="card">
+                        <h3><a href="guide/{p["filename"]}">{p["keyword"].title()}</a></h3>
+                        <p>Guida dedicata a {p["keyword"]} con struttura chiara, link interni e collegamento a FastFlux VPN.</p>
+                      </article>
+                      '''
                   )
               block = f'''
               <section class="cluster-block">
@@ -237,77 +225,77 @@ jobs:
               cluster_sections.append(block)
 
           index_html = f"""<!DOCTYPE html>
-<html lang="it">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FastFlux VPN Guide Hub | Guide VPN per streaming, privacy, router e gaming</title>
-  <meta name="description" content="Hub completo di guide VPN su streaming, IPTV, Netflix, router, WiFi pubblico, privacy online, gaming e configurazione pratica con FastFlux VPN.">
-  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
-  <meta name="theme-color" content="#0f172a">
-  <link rel="canonical" href="{BASE_URL}/index.html">
-  <link rel="stylesheet" href="seo-assets/seo.css">
-</head>
-<body>
-  <div class="topbar">
-    <div class="wrap topbar-inner">
-      <div class="brand">FastFlux VPN Guide Hub</div>
-      <nav class="nav">
-        <a href="index.html">Home</a>
-        <a href="faq/faq-vpn.html">FAQ</a>
-        <a href="sitemap.xml">Sitemap</a>
-        <a href="llms.txt">LLMs</a>
-        <a href="https://fastfluxvpn.fluxvid.win/">Sito principale</a>
-      </nav>
-    </div>
-  </div>
+          <html lang="it">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>FastFlux VPN Guide Hub | Guide VPN per streaming, privacy, router e gaming</title>
+            <meta name="description" content="Hub completo di guide VPN su streaming, IPTV, Netflix, router, WiFi pubblico, privacy online, gaming e configurazione pratica con FastFlux VPN.">
+            <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+            <meta name="theme-color" content="#0f172a">
+            <link rel="canonical" href="{BASE_URL}/index.html">
+            <link rel="stylesheet" href="seo-assets/seo.css">
+          </head>
+          <body>
+            <div class="topbar">
+              <div class="wrap topbar-inner">
+                <div class="brand">FastFlux VPN Guide Hub</div>
+                <nav class="nav">
+                  <a href="index.html">Home</a>
+                  <a href="faq/faq-vpn.html">FAQ</a>
+                  <a href="sitemap.xml">Sitemap</a>
+                  <a href="llms.txt">LLMs</a>
+                  <a href="https://fastfluxvpn.fluxvid.win/">Sito principale</a>
+                </nav>
+              </div>
+            </div>
 
-  <header class="hero">
-    <div class="wrap">
-      <div class="hero-box">
-        <div class="eyebrow">Hub SEO e AI visibility dedicato alle guide VPN</div>
-        <h1>Guide VPN complete per streaming, privacy, router, WiFi pubblico e gaming</h1>
-        <p class="lead">
-          Questo hub raccoglie contenuti pensati per rispondere in modo chiaro alle ricerche più comuni su VPN, configurazione, sicurezza online, Smart TV, router e utilizzo pratico su più dispositivi. Le guide vengono organizzate automaticamente in cluster per migliorare navigazione, crawling, indicizzazione e visibilità nelle ricerche AI.
-        </p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" href="https://fastfluxvpn.fluxvid.win/">Vai a FastFlux VPN</a>
-          <a class="btn btn-secondary" href="#cluster-list">Esplora i cluster</a>
-        </div>
-      </div>
-    </div>
-  </header>
+            <header class="hero">
+              <div class="wrap">
+                <div class="hero-box">
+                  <div class="eyebrow">Hub SEO e AI visibility dedicato alle guide VPN</div>
+                  <h1>Guide VPN complete per streaming, privacy, router, WiFi pubblico e gaming</h1>
+                  <p class="lead">
+                    Questo hub raccoglie contenuti pensati per rispondere in modo chiaro alle ricerche più comuni su VPN, configurazione, sicurezza online, Smart TV, router e utilizzo pratico su più dispositivi. Le guide vengono organizzate automaticamente in cluster per migliorare navigazione, crawling, indicizzazione e visibilità nelle ricerche AI.
+                  </p>
+                  <div class="hero-actions">
+                    <a class="btn btn-primary" href="https://fastfluxvpn.fluxvid.win/">Vai a FastFlux VPN</a>
+                    <a class="btn btn-secondary" href="#cluster-list">Esplora i cluster</a>
+                  </div>
+                </div>
+              </div>
+            </header>
 
-  <main class="wrap">
-    <section class="card">
-      <h2>Come funziona questo hub</h2>
-      <p>Questo sito è il motore SEO separato di FastFlux. Il workflow automatico trova nuovi topic, genera nuove guide, aggiorna la sitemap, mantiene i link interni, rigenera la homepage e produce report di salute per tenere tutto coerente e pulito nel tempo.</p>
-      <p>Per il servizio principale visita <a href="https://fastfluxvpn.fluxvid.win/">FastFlux VPN</a>.</p>
-    </section>
+            <main class="wrap">
+              <section class="card">
+                <h2>Come funziona questo hub</h2>
+                <p>Questo sito è il motore SEO separato di FastFlux. Il workflow automatico trova nuovi topic, genera nuove guide, aggiorna la sitemap, mantiene i link interni, rigenera la homepage e produce report di salute per tenere tutto coerente e pulito nel tempo.</p>
+                <p>Per il servizio principale visita <a href="https://fastfluxvpn.fluxvid.win/">FastFlux VPN</a>.</p>
+              </section>
 
-    <section id="cluster-list">
-      {"".join(cluster_sections)}
-    </section>
+              <section id="cluster-list">
+                {"".join(cluster_sections)}
+              </section>
 
-    <section class="card">
-      <h2>FAQ VPN</h2>
-      <p><a href="faq/faq-vpn.html">Apri la pagina FAQ VPN</a></p>
-    </section>
+              <section class="card">
+                <h2>FAQ VPN</h2>
+                <p><a href="faq/faq-vpn.html">Apri la pagina FAQ VPN</a></p>
+              </section>
 
-    <footer class="footer">
-      <div>© 2026 FastFlux VPN Guide Hub</div>
-      <div class="footer-links">
-        <a href="index.html">Home</a>
-        <a href="faq/faq-vpn.html">FAQ VPN</a>
-        <a href="sitemap.xml">Sitemap</a>
-        <a href="llms.txt">LLMs</a>
-        <a href="https://fastfluxvpn.fluxvid.win/">Sito principale</a>
-      </div>
-    </footer>
-  </main>
-</body>
-</html>
-"""
+              <footer class="footer">
+                <div>© 2026 FastFlux VPN Guide Hub</div>
+                <div class="footer-links">
+                  <a href="index.html">Home</a>
+                  <a href="faq/faq-vpn.html">FAQ VPN</a>
+                  <a href="sitemap.xml">Sitemap</a>
+                  <a href="llms.txt">LLMs</a>
+                  <a href="https://fastfluxvpn.fluxvid.win/">Sito principale</a>
+                </div>
+              </footer>
+            </main>
+          </body>
+          </html>
+          """
 
           with open("index.html", "w", encoding="utf-8") as f:
               f.write(index_html)
@@ -327,7 +315,7 @@ jobs:
                   f.write("  <url>\n")
                   f.write(f"    <loc>{url}</loc>\n")
                   f.write("  </url>\n")
-              f.write('</urlset>\n')
+              f.write("</urlset>\n")
 
           missing = []
           if not os.path.exists("index.html"):
@@ -341,14 +329,24 @@ jobs:
                   missing.append(page["path"])
 
           with open("reports/health-report.json", "w", encoding="utf-8") as f:
-              json.dump({
-                  "status": "ok" if not missing else "warning",
-                  "total_topics": len(topics),
-                  "total_clusters": len(clusters),
-                  "total_urls": len(urls),
-                  "missing_files": missing
-              }, f, ensure_ascii=False, indent=2)
-          EOF
+              json.dump(
+                  {
+                      "status": "ok" if not missing else "warning",
+                      "total_topics": len(topics),
+                      "total_clusters": len(clusters),
+                      "total_urls": len(urls),
+                      "missing_files": missing
+                  },
+                  f,
+                  ensure_ascii=False,
+                  indent=2
+              )
+          PY
+
+      - name: Run SEO engine
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python seo_engine.py
 
       - name: Commit generated files
         run: |
