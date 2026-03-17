@@ -2,3 +2,12 @@ User-agent: *
 Allow: /
 
 Sitemap: https://guide.fastfluxvpn.fluxvid.win/sitemap.xml
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
