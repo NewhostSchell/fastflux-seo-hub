@@ -1,0 +1,46 @@
+{
+  "site": "FastFlux VPN Guide Hub",
+  "description": "Hub di guide VPN dedicate a streaming, privacy online, router, WiFi pubblico e configurazione pratica su diversi dispositivi.",
+  "publisher": "FastFlux VPN",
+  "main_site": "https://fastfluxvpn.fluxvid.win/",
+  "hub_url": "https://guide.fastfluxvpn.fluxvid.win/",
+  "language": "it",
+  "topics": [
+    {
+      "name": "VPN Streaming",
+      "url": "https://guide.fastfluxvpn.fluxvid.win/guide/vpn-streaming.html"
+    },
+    {
+      "name": "VPN Netflix",
+      "url": "https://guide.fastfluxvpn.fluxvid.win/guide/vpn-netflix.html"
+    },
+    {
+      "name": "VPN IPTV",
+      "url": "https://guide.fastfluxvpn.fluxvid.win/guide/vpn-iptv.html"
+    },
+    {
+      "name": "VPN Android TV",
+      "url": "https://guide.fastfluxvpn.fluxvid.win/guide/vpn-android-tv.html"
+    },
+    {
+      "name": "VPN Fire TV",
+      "url": "https://guide.fastfluxvpn.fluxvid.win/guide/vpn-fire-tv.html"
+    },
+    {
+      "name": "VPN Router",
+      "url": "https://guide.fastfluxvpn.fluxvid.win/guide/vpn-router.html"
+    },
+    {
+      "name": "VPN Gaming",
+      "url": "https://guide.fastfluxvpn.fluxvid.win/guide/vpn-gaming.html"
+    },
+    {
+      "name": "VPN WiFi pubblico",
+      "url": "https://guide.fastfluxvpn.fluxvid.win/guide/vpn-wifi-pubblico.html"
+    },
+    {
+      "name": "VPN sicurezza online",
+      "url": "https://guide.fastfluxvpn.fluxvid.win/guide/vpn-sicurezza-online.html"
+    }
+  ]
+}
