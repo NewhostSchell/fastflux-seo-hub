@@ -6,10 +6,10 @@ on:
     - cron: "0 3 * * *"
   push:
     paths:
-      - 'data/topics.json'
-      - 'data/topics-master.json'
-      - 'templates/guide-template.html'
-      - '.github/workflows/generate-guides.yml'
+      - "data/topics.json"
+      - "data/topics-master.json"
+      - "templates/guide-template.html"
+      - ".github/workflows/generate-guides.yml"
 
 permissions:
   contents: write
@@ -28,12 +28,11 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: |
-          pip install openai
+        run: pip install openai
 
       - name: Prepare data files
         run: |
-          python << 'EOF'
+          python <<'EOF'
           import os, json
 
           os.makedirs("data", exist_ok=True)
@@ -62,8 +61,8 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          python << 'EOF'
-          import json, os, re
+          python <<'EOF'
+          import json, re
           from openai import OpenAI
 
           client = OpenAI()
@@ -126,7 +125,7 @@ jobs:
 
       - name: Generate guides, homepage, sitemap and reports
         run: |
-          python << 'EOF'
+          python <<'EOF'
           import json, os, re
           from collections import defaultdict
 
@@ -144,15 +143,15 @@ jobs:
 
           def pick_cluster(keyword):
               k = keyword.lower()
-              if any(x in k for x in ["streaming","netflix","iptv","android tv","fire tv","smart tv"]):
+              if any(x in k for x in ["streaming", "netflix", "iptv", "android tv", "fire tv", "smart tv"]):
                   return "Streaming e TV"
-              if any(x in k for x in ["router","wireguard","openwrt"]):
+              if any(x in k for x in ["router", "wireguard", "openwrt"]):
                   return "Router e rete"
-              if any(x in k for x in ["gaming","ping"]):
+              if any(x in k for x in ["gaming", "ping"]):
                   return "Gaming"
-              if any(x in k for x in ["wifi","hotel","aeroporto","viaggio"]):
+              if any(x in k for x in ["wifi", "hotel", "aeroporto", "viaggio"]):
                   return "WiFi pubblico e mobilità"
-              if any(x in k for x in ["privacy","dati","sicurezza"]):
+              if any(x in k for x in ["privacy", "dati", "sicurezza"]):
                   return "Privacy e sicurezza"
               return "Guide VPN"
 
@@ -192,7 +191,9 @@ jobs:
 
               related_links = []
               for rel in related:
-                  related_links.append(f'<li><a href="../guide/{rel["filename"]}">{rel["keyword"].title()}</a></li>')
+                  related_links.append(
+                      f'<li><a href="../guide/{rel["filename"]}">{rel["keyword"].title()}</a></li>'
+                  )
               related_links.append('<li><a href="../faq/faq-vpn.html">FAQ VPN</a></li>')
               related_links.append('<li><a href="../index.html">Torna all hub</a></li>')
               related_links_html = "\n      ".join(related_links)
@@ -217,12 +218,14 @@ jobs:
           for cluster_name, cluster_pages in clusters.items():
               items = []
               for p in cluster_pages[:12]:
-                  items.append(f'''
+                  items.append(
+                      f'''
                   <article class="card">
                     <h3><a href="guide/{p["filename"]}">{p["keyword"].title()}</a></h3>
                     <p>Guida dedicata a {p["keyword"]} con struttura chiara, link interni e collegamento a FastFlux VPN.</p>
                   </article>
-                  ''')
+                  '''
+                  )
               block = f'''
               <section class="cluster-block">
                 <h2 class="section-title">{cluster_name}</h2>
@@ -233,7 +236,7 @@ jobs:
               '''
               cluster_sections.append(block)
 
-          index_html = f'''<!DOCTYPE html>
+          index_html = f"""<!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8">
@@ -303,12 +306,17 @@ jobs:
     </footer>
   </main>
 </body>
-</html>'''
+</html>
+"""
 
           with open("index.html", "w", encoding="utf-8") as f:
               f.write(index_html)
 
-          urls = [f"{BASE_URL}/index.html", f"{BASE_URL}/faq/faq-vpn.html", f"{BASE_URL}/llms.txt"]
+          urls = [
+              f"{BASE_URL}/index.html",
+              f"{BASE_URL}/faq/faq-vpn.html",
+              f"{BASE_URL}/llms.txt"
+          ]
           for page in pages:
               urls.append(page["url"])
 
