@@ -210,6 +210,41 @@ jobs:
                   indent=2
               )
 
+          # Espansione keyword correlate: 3 per ogni guida/topic
+          expanded_topics = []
+
+          for topic in topics:
+              suggestions = google_suggest(topic)
+              count = 0
+
+              for s in suggestions:
+                  s = normalize_topic(s)
+
+                  if s and s not in topics and s not in expanded_topics:
+                      expanded_topics.append(s)
+                      count += 1
+
+                  if count >= 3:
+                      break
+
+          if expanded_topics:
+              topics.extend(expanded_topics)
+              data["topics"] = topics
+              with open(master_path, "w", encoding="utf-8") as f:
+                  json.dump(data, f, ensure_ascii=False, indent=2)
+
+          with open("reports/related-keywords-report.json", "w", encoding="utf-8") as f:
+              json.dump(
+                  {
+                      "related_topics_added": expanded_topics,
+                      "count_added": len(expanded_topics),
+                      "total_topics": len(topics)
+                  },
+                  f,
+                  ensure_ascii=False,
+                  indent=2
+              )
+
           with open("templates/guide-template.html", "r", encoding="utf-8") as f:
               template = f.read()
 
@@ -413,7 +448,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/topics-master.json reports/ai-discovery-report.json reports/serp-discovery-report.json guide index.html sitemap.xml reports/health-report.json
+          git add data/topics-master.json reports/ai-discovery-report.json reports/serp-discovery-report.json reports/related-keywords-report.json guide index.html sitemap.xml reports/health-report.json
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
