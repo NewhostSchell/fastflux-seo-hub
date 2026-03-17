@@ -142,6 +142,18 @@ jobs:
           with open(master_path, "w", encoding="utf-8") as f:
               json.dump(data, f, ensure_ascii=False, indent=2)
 
+          # Pulisce le pagine guida già esistenti con parole bloccate
+          guide_folder = "guide"
+
+          if os.path.exists(guide_folder):
+              for filename in os.listdir(guide_folder):
+                  lower_name = filename.lower()
+                  if any(b in lower_name for b in blocked_words):
+                      try:
+                          os.remove(os.path.join(guide_folder, filename))
+                      except:
+                          pass
+
           # Seed keywords base + Google Suggest discovery
           seed_keywords = [
               "vpn streaming",
