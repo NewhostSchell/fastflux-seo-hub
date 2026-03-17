@@ -115,6 +115,33 @@ jobs:
 
           topics = [normalize_topic(t) for t in data.get("topics", []) if str(t).strip()]
 
+          blocked_words = [
+              "gratis",
+              "free",
+              "nordvpn",
+              "expressvpn",
+              "surfshark",
+              "protonvpn",
+              "cyberghost",
+              "privatevpn",
+              "pia",
+              "private internet access",
+              "windscribe",
+              "mullvad"
+          ]
+
+          clean_topics = []
+
+          for t in topics:
+              if not any(b in t for b in blocked_words):
+                  clean_topics.append(t)
+
+          topics = clean_topics
+          data["topics"] = topics
+
+          with open(master_path, "w", encoding="utf-8") as f:
+              json.dump(data, f, ensure_ascii=False, indent=2)
+
           # Seed keywords base + Google Suggest discovery
           seed_keywords = [
               "vpn streaming",
@@ -131,7 +158,7 @@ jobs:
               suggestions = google_suggest(seed)
               for s in suggestions:
                   s = normalize_topic(s)
-                  if s and s not in topics and s not in serp_topics:
+                  if s and s not in topics and s not in serp_topics and not any(b in s for b in blocked_words):
                       serp_topics.append(s)
 
           serp_topics = serp_topics[:10]
@@ -175,6 +202,8 @@ jobs:
           - useful for an informational guide page
           - no illegal, adult, hacking, crack, piracy topics
           - short search-style phrases
+          - do not mention competitor VPN brands
+          - do not use the words gratis or free
           - output ONLY valid JSON in this format:
           {{"topics":["topic 1","topic 2","topic 3","topic 4","topic 5","topic 6","topic 7","topic 8","topic 9","topic 10"]}}
                   """
@@ -187,7 +216,7 @@ jobs:
                   result = json.loads(text)
                   for t in result.get("topics", []):
                       t = normalize_topic(t)
-                      if t and t not in topics and t not in new_topics:
+                      if t and t not in topics and t not in new_topics and not any(b in t for b in blocked_words):
                           new_topics.append(t)
               except Exception:
                   new_topics = []
@@ -220,7 +249,7 @@ jobs:
               for s in suggestions:
                   s = normalize_topic(s)
 
-                  if s and s not in topics and s not in expanded_topics:
+                  if s and s not in topics and s not in expanded_topics and not any(b in s for b in blocked_words):
                       expanded_topics.append(s)
                       count += 1
 
