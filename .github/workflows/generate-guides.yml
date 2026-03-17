@@ -39,6 +39,11 @@ jobs:
           import requests
           from collections import defaultdict
 
+          def normalize_topic(text):
+              text = str(text).strip().lower()
+              text = re.sub(r"\s+", " ", text)
+              return text
+
           def google_suggest(keyword):
               url = "https://suggestqueries.google.com/complete/search"
               params = {
@@ -106,7 +111,46 @@ jobs:
               with open(master_path, "w", encoding="utf-8") as f:
                   json.dump(data, f, ensure_ascii=False, indent=2)
 
-          topics = data.get("topics", [])
+          topics = [normalize_topic(t) for t in data.get("topics", []) if str(t).strip()]
+
+          # Seed keywords base + Google Suggest discovery
+          seed_keywords = [
+              "vpn streaming",
+              "vpn netflix",
+              "vpn router",
+              "vpn gaming",
+              "vpn wifi pubblico",
+              "vpn privacy"
+          ]
+
+          serp_topics = []
+
+          for seed in seed_keywords:
+              suggestions = google_suggest(seed)
+              for s in suggestions:
+                  s = normalize_topic(s)
+                  if s and s not in topics and s not in serp_topics:
+                      serp_topics.append(s)
+
+          serp_topics = serp_topics[:10]
+
+          if serp_topics:
+              topics.extend(serp_topics)
+              data["topics"] = topics
+              with open(master_path, "w", encoding="utf-8") as f:
+                  json.dump(data, f, ensure_ascii=False, indent=2)
+
+          with open("reports/serp-discovery-report.json", "w", encoding="utf-8") as f:
+              json.dump(
+                  {
+                      "seed_keywords": seed_keywords,
+                      "serp_topics_added": serp_topics,
+                      "count_added": len(serp_topics)
+                  },
+                  f,
+                  ensure_ascii=False,
+                  indent=2
+              )
 
           # OpenAI discovery
           new_topics = []
@@ -140,8 +184,7 @@ jobs:
                   text = response.output[0].content[0].text
                   result = json.loads(text)
                   for t in result.get("topics", []):
-                      t = str(t).strip().lower()
-                      t = re.sub(r"\s+", " ", t)
+                      t = normalize_topic(t)
                       if t and t not in topics and t not in new_topics:
                           new_topics.append(t)
               except Exception:
@@ -368,7 +411,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/topics-master.json reports/ai-discovery-report.json guide index.html sitemap.xml reports/health-report.json
+          git add data/topics-master.json reports/ai-discovery-report.json reports/serp-discovery-report.json guide index.html sitemap.xml reports/health-report.json
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
