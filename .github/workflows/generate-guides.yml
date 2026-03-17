@@ -3,7 +3,9 @@ name: FastFlux SEO Daily Engine
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 3 * * *"
+    - cron: "0 2 * * *"
+    - cron: "0 10 * * *"
+    - cron: "0 18 * * *"
   push:
     paths:
       - "data/topics.json"
@@ -165,7 +167,7 @@ jobs:
           Existing VPN SEO topics:
           {topics}
 
-          Suggest exactly 4 NEW Italian SEO topics for a VPN guide hub.
+          Suggest exactly 10 NEW Italian SEO topics for a VPN guide hub.
 
           Requirements:
           - related to VPN, streaming, IPTV, router, wifi security, privacy, gaming, smart tv
@@ -174,7 +176,7 @@ jobs:
           - no illegal, adult, hacking, crack, piracy topics
           - short search-style phrases
           - output ONLY valid JSON in this format:
-          {{"topics":["topic 1","topic 2","topic 3","topic 4"]}}
+          {{"topics":["topic 1","topic 2","topic 3","topic 4","topic 5","topic 6","topic 7","topic 8","topic 9","topic 10"]}}
                   """
 
                   response = client.responses.create(
