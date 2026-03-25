@@ -5,12 +5,10 @@
     "vpn privacy",
     "vpn no log",
     "vpn wifi pubblico",
-    "vpn router"
+    "vpn router",
+    "vpn smart tv",
+    "vpn sicurezza online"
   ],
-  "serp_topics_added": [
-    "vpn router fritz box",
-    "vpn router tp link",
-    "vpn router fastweb"
-  ],
-  "count_added": 3
+  "serp_topics_added": [],
+  "count_added": 0
 }
