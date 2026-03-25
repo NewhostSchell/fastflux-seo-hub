@@ -1,4 +1,4 @@
-name: FastFlux SEO Daily Engine
+name: Velixtor SEO Daily Engine
 
 on:
   workflow_dispatch:
@@ -53,7 +53,6 @@ jobs:
                   "hl": "it",
                   "q": keyword
               }
-
               try:
                   r = requests.get(url, params=params, timeout=10)
                   data = r.json()
@@ -61,7 +60,8 @@ jobs:
               except:
                   return []
 
-          BASE_URL = "https://guide.fastfluxvpn.fluxvid.win"
+          BASE_URL = "https://guide.velixtor.com"
+          MAIN_SITE_URL = "https://velixtor.com"
 
           os.makedirs("data", exist_ok=True)
           os.makedirs("guide", exist_ok=True)
@@ -87,9 +87,49 @@ jobs:
                   return "Gaming"
               if any(x in k for x in ["wifi", "hotel", "aeroporto", "viaggio"]):
                   return "WiFi pubblico e mobilità"
-              if any(x in k for x in ["privacy", "dati", "sicurezza"]):
+              if any(x in k for x in ["privacy", "dati", "sicurezza", "no log", "privata"]):
                   return "Privacy e sicurezza"
               return "Guide VPN"
+
+          def topic_allowed(topic):
+              t = normalize_topic(topic)
+
+              blocked_fragments = [
+                  "gratis", "free", "mod", "apk", "premium", "download", "crack", "hack",
+                  "reddit", "proxy error", "error", "not working", "household",
+                  "wwe", "turkey", "cheap", "cheapest", "price", "review", "manual",
+                  "default password", "apkmirror", "downloader code",
+                  "nordvpn", "nord vpn", "expressvpn", "express vpn", "surfshark",
+                  "protonvpn", "proton vpn", "cyberghost", "privatevpn", "pia",
+                  "private internet access", "windscribe", "mullvad", "opera vpn",
+                  "urban vpn", "turbo vpn", "hola vpn", "atlas vpn", "mcafee", "norton",
+                  "bitdefender", "kaspersky", "malwarebytes", "adguard", "mozilla vpn",
+                  "perfect privacy", "privacy dot"
+              ]
+
+              blocked_exact = {
+                  "vpn installazione vpn",
+                  "vpn configurazione vpn",
+                  "vpn vpn no log",
+                  "vpn mas veloces"
+              }
+
+              if not t:
+                  return False
+
+              if t in blocked_exact:
+                  return False
+
+              if len(t) > 65:
+                  return False
+
+              if sum(1 for c in t if c.isdigit()) > 2:
+                  return False
+
+              if any(b in t for b in blocked_fragments):
+                  return False
+
+              return True
 
           master_path = "data/topics-master.json"
 
@@ -113,72 +153,55 @@ jobs:
               with open(master_path, "w", encoding="utf-8") as f:
                   json.dump(data, f, ensure_ascii=False, indent=2)
 
-          topics = [normalize_topic(t) for t in data.get("topics", []) if str(t).strip()]
+          raw_topics = [normalize_topic(t) for t in data.get("topics", []) if str(t).strip()]
+          topics = []
 
-          blocked_words = [
-              "gratis",
-              "free",
-              "nordvpn",
-              "expressvpn",
-              "surfshark",
-              "protonvpn",
-              "cyberghost",
-              "privatevpn",
-              "pia",
-              "private internet access",
-              "windscribe",
-              "mullvad"
-          ]
+          for t in raw_topics:
+              if topic_allowed(t) and t not in topics:
+                  topics.append(t)
 
-          clean_topics = []
-
-          for t in topics:
-              if not any(b in t for b in blocked_words):
-                  clean_topics.append(t)
-
-          topics = clean_topics
           data["topics"] = topics
 
           with open(master_path, "w", encoding="utf-8") as f:
               json.dump(data, f, ensure_ascii=False, indent=2)
 
-          # Pulisce le pagine guida già esistenti con parole bloccate
           guide_folder = "guide"
-
           if os.path.exists(guide_folder):
               for filename in os.listdir(guide_folder):
                   lower_name = filename.lower()
-                  if any(b in lower_name for b in blocked_words):
+                  if not topic_allowed(lower_name.replace(".html", "").replace("-", " ")):
                       try:
                           os.remove(os.path.join(guide_folder, filename))
                       except:
                           pass
 
-          # Seed keywords base + Google Suggest discovery
           seed_keywords = [
               "vpn streaming",
-              "vpn netflix",
-              "vpn router",
               "vpn gaming",
+              "vpn privacy",
+              "vpn no log",
               "vpn wifi pubblico",
-              "vpn privacy"
+              "vpn router"
           ]
 
           serp_topics = []
-
           for seed in seed_keywords:
               suggestions = google_suggest(seed)
               for s in suggestions:
                   s = normalize_topic(s)
-                  if s and s not in topics and s not in serp_topics and not any(b in s for b in blocked_words):
+                  if topic_allowed(s) and s not in topics and s not in serp_topics:
                       serp_topics.append(s)
 
-          serp_topics = serp_topics[:10]
+          serp_topics = serp_topics[:8]
 
           if serp_topics:
               topics.extend(serp_topics)
               data["topics"] = topics
               with open(master_path, "w", encoding="utf-8") as f:
+                  json.dump(data, f, ensure_ascii=False, indent=2)
+
+          with open("reports/serp-discovery-report.json", "w",
+encoding="utf-8") as f:
                   json.dump(data, f, ensure_ascii=False, indent=2)
 
           with open("reports/serp-discovery-report.json", "w", encoding="utf-8") as f:
@@ -193,7 +216,6 @@ jobs:
                   indent=2
               )
 
-          # OpenAI discovery
           new_topics = []
           api_key = os.environ.get("OPENAI_API_KEY", "").strip()
 
@@ -206,30 +228,33 @@ jobs:
           Existing VPN SEO topics:
           {topics}
 
-          Suggest exactly 10 NEW Italian SEO topics for a VPN guide hub.
+          Suggest exactly 8 NEW Italian SEO topics for a VPN guide hub for Velixtor.
 
           Requirements:
-          - related to VPN, streaming, IPTV, router, wifi security, privacy, gaming, smart tv
-          - not duplicates
-          - useful for an informational guide page
-          - no illegal, adult, hacking, crack, piracy topics
+          - focus on streaming, gaming, privacy, no log, router, wifi pubblico, smart tv
+          - informational intent only
           - short search-style phrases
-          - do not mention competitor VPN brands
-          - do not use the words gratis or free
+          - no duplicates
+          - no competitor brands
+          - no 'gratis', 'free', 'reddit', 'mod', 'apk', 'error', 'not working'
+          - no piracy, hacking, illegal or adult topics
           - output ONLY valid JSON in this format:
-          {{"topics":["topic 1","topic 2","topic 3","topic 4","topic 5","topic 6","topic 7","topic 8","topic 9","topic 10"]}}
+          {{"topics":["topic 1","topic 2","topic 3","topic 4","topic 5","topic 6","topic 7","topic 8"]}}
                   """
 
                   response = client.responses.create(
                       model="gpt-4.1-mini",
                       input=prompt
                   )
+
                   text = response.output[0].content[0].text
                   result = json.loads(text)
+
                   for t in result.get("topics", []):
                       t = normalize_topic(t)
-                      if t and t not in topics and t not in new_topics and not any(b in t for b in blocked_words):
+                      if topic_allowed(t) and t not in topics and t not in new_topics:
                           new_topics.append(t)
+
               except Exception:
                   new_topics = []
 
@@ -251,21 +276,17 @@ jobs:
                   indent=2
               )
 
-          # Espansione keyword correlate: 3 per ogni guida/topic
           expanded_topics = []
-
           for topic in topics:
               suggestions = google_suggest(topic)
               count = 0
 
               for s in suggestions:
                   s = normalize_topic(s)
-
-                  if s and s not in topics and s not in expanded_topics and not any(b in s for b in blocked_words):
+                  if topic_allowed(s) and s not in topics and s not in expanded_topics:
                       expanded_topics.append(s)
                       count += 1
-
-                  if count >= 3:
+                  if count >= 2:
                       break
 
           if expanded_topics:
@@ -320,12 +341,12 @@ jobs:
                       f'<li><a href="../guide/{rel["filename"]}">{rel["keyword"].title()}</a></li>'
                   )
               related_links.append('<li><a href="../faq/faq-vpn.html">FAQ VPN</a></li>')
-              related_links.append('<li><a href="../index.html">Torna all hub</a></li>')
+              related_links.append('<li><a href="../index.html">Torna all’hub</a></li>')
               related_links_html = "\n      ".join(related_links)
 
-              title = f'{page["keyword"].title()} | FastFlux VPN Guide'
-              description = f'Guida completa su {page["keyword"]}, utilizzo, vantaggi, configurazione e casi pratici.'
-              intro = f'{page["keyword"].capitalize()} è un argomento importante per chi vuole migliorare privacy, sicurezza e uso pratico di una VPN.'
+              title = f'{page["keyword"].title()} | Velixtor Guide'
+              description = f'Guida pratica su {page["keyword"]}: utilizzo, vantaggi, configurazione e casi reali.'
+              intro = f'{page["keyword"].capitalize()} è una guida utile per capire come usare una VPN in modo più sicuro, stabile e pratico.'
               canonical = page["url"]
 
               html = template
@@ -347,7 +368,7 @@ jobs:
                       f'''
                       <article class="card">
                         <h3><a href="guide/{p["filename"]}">{p["keyword"].title()}</a></h3>
-                        <p>Guida dedicata a {p["keyword"]} con struttura chiara, link interni e collegamento a FastFlux VPN.</p>
+                        <p>Guida pratica su {p["keyword"]} con focus su utilizzo reale, sicurezza e collegamento diretto a Velixtor.</p>
                       </article>
                       '''
                   )
@@ -366,8 +387,8 @@ jobs:
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>FastFlux VPN Guide Hub | Guide VPN per streaming, privacy, router e gaming</title>
-            <meta name="description" content="Hub completo di guide VPN su streaming, IPTV, Netflix, router, WiFi pubblico, privacy online, gaming e configurazione pratica con FastFlux VPN.">
+            <title>Velixtor Guide Hub | Guide VPN per streaming, gaming, privacy e WiFi pubblico</title>
+            <meta name="description" content="Hub completo di guide VPN su streaming, smart TV, router, gaming, privacy, no log e WiFi pubblico con collegamento diretto a Velixtor.">
             <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
             <meta name="theme-color" content="#0f172a">
             <link rel="canonical" href="{BASE_URL}/index.html">
@@ -376,13 +397,13 @@ jobs:
           <body>
             <div class="topbar">
               <div class="wrap topbar-inner">
-                <div class="brand">FastFlux VPN Guide Hub</div>
+                <div class="brand">Velixtor Guide Hub</div>
                 <nav class="nav">
                   <a href="index.html">Home</a>
                   <a href="faq/faq-vpn.html">FAQ</a>
                   <a href="sitemap.xml">Sitemap</a>
                   <a href="llms.txt">LLMs</a>
-                  <a href="https://fastfluxvpn.fluxvid.win/">Sito principale</a>
+                  <a href="{MAIN_SITE_URL}">Sito principale</a>
                 </nav>
               </div>
             </div>
@@ -390,14 +411,14 @@ jobs:
             <header class="hero">
               <div class="wrap">
                 <div class="hero-box">
-                  <div class="eyebrow">Hub SEO e AI visibility dedicato alle guide VPN</div>
-                  <h1>Guide VPN complete per streaming, privacy, router, WiFi pubblico e gaming</h1>
+                  <div class="eyebrow">Guide VPN aggiornate per streaming, privacy e sicurezza</div>
+                  <h1>Guide VPN complete per streaming, gaming, privacy, no log, router e WiFi pubblico</h1>
                   <p class="lead">
-                    Questo hub raccoglie contenuti pensati per rispondere in modo chiaro alle ricerche più comuni su VPN, configurazione, sicurezza online, Smart TV, router e utilizzo pratico su più dispositivi. Le guide vengono organizzate automaticamente in cluster per migliorare navigazione, crawling, indicizzazione e visibilità nelle ricerche AI.
+                    Questo hub raccoglie guide pensate per rispondere in modo chiaro alle ricerche più importanti su VPN, configurazione, sicurezza online, Smart TV, router, gaming e protezione su reti pubbliche. Le pagine sono organizzate in cluster per migliorare navigazione, crawling, indicizzazione e collegamento verso Velixtor.
                   </p>
                   <div class="hero-actions">
-                    <a class="btn btn-primary" href="https://fastfluxvpn.fluxvid.win/">Vai a FastFlux VPN</a>
-                    <a class="btn btn-secondary" href="#cluster-list">Esplora i cluster</a>
+                    <a class="btn btn-primary" href="{MAIN_SITE_URL}">Vai a Velixtor</a>
+                    <a class="btn btn-secondary" href="#cluster-list">Esplora le guide</a>
                   </div>
                 </div>
               </div>
@@ -406,8 +427,8 @@ jobs:
             <main class="wrap">
               <section class="card">
                 <h2>Come funziona questo hub</h2>
-                <p>Questo sito è il motore SEO separato di FastFlux. Il workflow automatico trova nuovi topic, genera nuove guide, aggiorna la sitemap, mantiene i link interni, rigenera la homepage e produce report di salute per tenere tutto coerente e pulito nel tempo.</p>
-                <p>Per il servizio principale visita <a href="https://fastfluxvpn.fluxvid.win/">FastFlux VPN</a>.</p>
+                <p>Questo sito raccoglie guide VPN organizzate per cluster tematici come streaming, gaming, router, WiFi pubblico, privacy e no log. L’obiettivo è offrire contenuti utili, chiari e facili da navigare, mantenendo una struttura forte per indicizzazione, link interni e visibilità organica.</p>
+                <p>Per il servizio principale visita <a href="{MAIN_SITE_URL}">Velixtor.com</a>.</p>
               </section>
 
               <section id="cluster-list">
@@ -420,13 +441,13 @@ jobs:
               </section>
 
               <footer class="footer">
-                <div>© 2026 FastFlux VPN Guide Hub</div>
+                <div>© 2026 Velixtor Guide Hub</div>
                 <div class="footer-links">
                   <a href="index.html">Home</a>
                   <a href="faq/faq-vpn.html">FAQ VPN</a>
                   <a href="sitemap.xml">Sitemap</a>
                   <a href="llms.txt">LLMs</a>
-                  <a href="https://fastfluxvpn.fluxvid.win/">Sito principale</a>
+                  <a href="{MAIN_SITE_URL}">Sito principale</a>
                 </div>
               </footer>
             </main>
@@ -493,6 +514,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Auto-update SEO hub"
+            git commit -m "Auto-update Velixtor SEO hub"
             git push
           fi
