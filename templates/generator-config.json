@@ -1,13 +1,10 @@
 {
-"source":"data/topics.json",
-
-"template":"templates/guide-template.html",
-
-"output":"guide/",
-
-"slugify":true,
-
-"internal_links":[
-"faq/faq-vpn.html"
-]
+  "source": "data/topics.json",
+  "template": "templates/guide-template.html",
+  "output": "guide/",
+  "slugify": true,
+  "internal_links": [
+    "index.html",
+    "faq/faq-vpn.html"
+  ]
 }
