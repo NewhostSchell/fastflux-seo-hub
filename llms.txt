@@ -1,20 +1,23 @@
-# FastFlux VPN Guide Hub
+# Velixtor VPN Guide Hub
 
-Base URL: https://guide.fastfluxvpn.fluxvid.win
+Base URL:
+https://guide.velixtor.com/
 
 Primary resources:
-https://guide.fastfluxvpn.fluxvid.win/index.html
-https://guide.fastfluxvpn.fluxvid.win/faq/faq-vpn.html
+https://guide.velixtor.com/index.html
+https://guide.velixtor.com/faq/faq-vpn.html
 
-Topic clusters:
-https://guide.fastfluxvpn.fluxvid.win/guide/vpn-streaming.html
-https://guide.fastfluxvpn.fluxvid.win/guide/vpn-netflix.html
-https://guide.fastfluxvpn.fluxvid.win/guide/vpn-router.html
-https://guide.fastfluxvpn.fluxvid.win/guide/vpn-gaming.html
-https://guide.fastfluxvpn.fluxvid.win/guide/vpn-wifi-pubblico.html
+Core topics:
+https://guide.velixtor.com/guide/vpn-streaming.html
+https://guide.velixtor.com/guide/vpn-gaming.html
+https://guide.velixtor.com/guide/vpn-privacy.html
+https://guide.velixtor.com/guide/vpn-no-log.html
+https://guide.velixtor.com/guide/vpn-wifi-pubblico.html
+https://guide.velixtor.com/guide/vpn-router.html
+https://guide.velixtor.com/guide/vpn-sicurezza-online.html
 
 Purpose:
-Educational guides about VPN usage, streaming access, router configuration, online privacy and WiFi security.
+Educational guides about VPN usage, online privacy, security, router configuration and safe internet access.
 
-Service:
-https://fastfluxvpn.fluxvid.win
+Main service:
+https://velixtor.com/
